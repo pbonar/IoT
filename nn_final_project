@@ -1,0 +1,389 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <time.h>
+#include <unistd.h>
+#include "pmsis.h"
+
+
+
+// define neural network paramaters
+#define INPUT_SIZE 1
+#define HIDDEN_SIZE 5
+#define OUTPUT_SIZE 1
+#define LEARNING_RATE 0.0001
+#define EPOCHS 100
+#define RAND_MAX _UINT32_MAX_
+
+
+// define ReLU activated function）
+double activation(double x) {
+    return (x > 0) ? x: 0.0;
+}
+
+static uint32_t seed;
+
+void gap8_srand(){
+	seed = (uint32_t) clock();
+}
+
+uint32_t gap8_rand(){
+	seed ^= (seed * seed * 12938293 + 12345) % _UINT32_MAX_;
+	return seed;
+}
+
+// define neural network weights and biases
+double weights_input_hidden[INPUT_SIZE][HIDDEN_SIZE];
+double bias_hidden[HIDDEN_SIZE];
+double weights_hidden_output[HIDDEN_SIZE][OUTPUT_SIZE];
+double bias_output;
+
+
+// define training data
+double training_data[][INPUT_SIZE] = {
+{1.96}, {1.83}, {1.74}, {1.60}, {1.55}, {1.41},
+{1.95}, {1.85}, {1.75}, {1.63}, {1.53}, {1.38},
+{1.95}, {1.85}, {1.75}, {1.63}, {1.53}, {1.40},
+{1.94}, {1.88}, {1.81}, {1.61}, {1.50}, {1.41},
+{1.94}, {1.86}, {1.78}, {1.68}, {1.53}, {1.40},
+{1.94}, {1.87}, {1.74}, {1.66}, {1.54}, {1.37},
+{1.93}, {1.83}, {1.78}, {1.66}, {1.53}, {1.39},
+{1.96}, {1.85}, {1.75}, {1.66}, {1.57}, {1.40},
+{1.94}, {1.85}, {1.77}, {1.64}, {1.55}, {1.41},
+{1.94}, {1.86}, {1.74}, {1.63}, {1.54}, {1.40},
+{1.93}, {1.86}, {1.73}, {1.60}, {1.55}, {1.40},
+{1.93}, {1.88}, {1.77}, {1.60}, {1.52}, {1.38},
+{1.94}, {1.85}, {1.75}, {1.62}, {1.51}, {1.39},
+{1.94}, {1.87}, {1.77}, {1.66}, {1.55}, {1.44},
+{1.95}, {1.88}, {1.77}, {1.64}, {1.57}, {1.44},
+{1.95}, {1.84}, {1.77}, {1.65}, {1.57}, {1.40},
+{1.95}, {1.86}, {1.75}, {1.63}, {1.56}, {1.41},
+{1.94}, {1.87}, {1.81}, {1.65}, {1.55}, {1.39},
+{1.93}, {1.84}, {1.81}, {1.60}, {1.55}, {1.39},
+{1.93}, {1.90}, {1.77}, {1.64}, {1.55}, {1.40},
+{1.94}, {1.90}, {1.74}, {1.63}, {1.53}, {1.39},
+{1.95}, {1.88}, {1.79}, {1.62}, {1.55}, {1.44},
+{1.95}, {1.88}, {1.73}, {1.64}, {1.54}, {1.40},
+{1.95}, {1.89}, {1.76}, {1.62}, {1.55}, {1.43},
+{1.94}, {1.89}, {1.78}, {1.62}, {1.53}, {1.41},
+{1.94}, {1.86}, {1.77}, {1.60}, {1.55}, {1.43},
+{1.94}, {1.91}, {1.82}, {1.59}, {1.53}, {1.47},
+{1.93}, {1.89}, {1.79}, {1.59}, {1.53}, {1.43},
+{1.94}, {1.92}, {1.77}, {1.63}, {1.52}, {1.38},
+{1.95}, {1.87}, {1.78}, {1.62}, {1.52}, {1.44},
+{1.95}, {1.87}, {1.77}, {1.61}, {1.57}, {1.40},
+{1.93}, {1.90}, {1.77}, {1.60}, {1.55}, {1.39},
+{1.94}, {1.86}, {1.74}, {1.63}, {1.56}, {1.39},
+{1.94}, {1.84}, {1.78}, {1.65}, {1.56}, {1.41},
+{1.94}, {1.89}, {1.78}, {1.59}, {1.51}, {1.41},
+{1.94}, {1.88}, {1.78}, {1.61}, {1.55}, {1.40},
+{1.96}, {1.87}, {1.79}, {1.65}, {1.57}, {1.37},
+{1.95}, {1.89}, {1.80}, {1.64}, {1.57}, {1.44},
+{1.96}, {1.89}, {1.76}, {1.60}, {1.56}, {1.43},
+{1.94}, {1.86}, {1.75}, {1.63}, {1.55}, {1.44},
+{1.94}, {1.92}, {1.82}, {1.61}, {1.57}, {1.39},
+{1.94}, {1.84}, {1.79}, {1.59}, {1.57}, {1.43},
+{1.94}, {1.87}, {1.76}, {1.63}, {1.55}, {1.47},
+{1.94}, {1.85}, {1.78}, {1.60}, {1.57}, {1.42},
+{1.95}, {1.85}, {1.79}, {1.60}, {1.59}, {1.44},
+{1.95}, {1.82}, {1.77}, {1.60}, {1.59}, {1.48},
+{1.96}, {1.80}, {1.75}, {1.60}, {1.55}, {1.47},
+{1.94}, {1.79}, {1.74}, {1.59}, {1.55}, {1.43},
+{1.95}, {1.81}, {1.78}, {1.60}, {1.56}, {1.43},
+{1.94}, {1.82}, {1.78}, {1.59}, {1.56}, {1.42},
+{1.94}, {1.86}, {1.78}, {1.58}, {1.58}, {1.44},
+{1.94}, {1.85}, {1.78}, {1.61}, {1.56}, {1.43},
+{1.94}, {1.82}, {1.78}, {1.62}, {1.59}, {1.44},
+{1.96}, {1.80}, {1.76}, {1.61}, {1.55}, {1.44},
+{1.96}, {1.81}, {1.82}, {1.59}, {1.55}, {1.49},
+{1.95}, {1.82}, {1.79}, {1.58}, {1.57}, {1.46},
+{1.94}, {1.79}, {1.81}, {1.61}, {1.56}, {1.44},
+{1.94}, {1.84}, {1.81}, {1.59}, {1.54}, {1.43},
+{1.94}, {1.84}, {1.78}, {1.59}, {1.54}, {1.44}
+};
+    double targets[] = {
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90,
+0, 20, 40, 60, 80, 90
+};
+
+// define testing data
+    double test_data[][INPUT_SIZE] = {{1.44}, {1.94}, {1.61}, {1.65}, {1.53}};
+    double test_targets[] = {90, 0, 60, 60, 80};
+
+// initialize NN parameters
+void initialize() {
+    // Initialize weights and biases for the input to hidden layer
+    for (int i = 0; i < INPUT_SIZE; i++) {
+        for (int j = 0; j < HIDDEN_SIZE; j++) {
+            weights_input_hidden[i][j] = ((double)gap8_rand() / RAND_MAX) * 2 - 1;
+        }
+    }
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        bias_hidden[j] = ((double)gap8_rand() / RAND_MAX) * 2 - 1;
+    }
+
+    // Initialize weights and biases for the hidden to output layer
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        for (int k = 0; k < OUTPUT_SIZE; k++) {
+            weights_hidden_output[j][k] = ((double)gap8_rand() / RAND_MAX) * 2 - 1;
+        }
+    }
+    bias_output = ((double)gap8_rand() / RAND_MAX) * 2 - 1;
+}
+
+// neural network forward propagation
+double predict(double inputs[]) {
+    double hidden_layer[HIDDEN_SIZE];
+    double output = 0;
+
+    // Compute activations for the hidden layer
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        hidden_layer[j] = 0;
+        for (int i = 0; i < INPUT_SIZE; i++) {
+            hidden_layer[j] += weights_input_hidden[i][j] * inputs[i];
+        }
+        hidden_layer[j] = activation(hidden_layer[j] + bias_hidden[j]);
+    }
+
+    // Compute activation for the output layer
+    for (int k = 0; k < OUTPUT_SIZE; k++) {
+        output += hidden_layer[k] * weights_hidden_output[k][0];
+    }
+    output += bias_output;
+
+    return activation(output);
+}
+
+// Train a neural network
+void train(double inputs[], double target) {
+    double hidden_layer[HIDDEN_SIZE];
+    double output = 0;
+
+    // Forward propagation
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        hidden_layer[j] = 0;
+        for (int i = 0; i < INPUT_SIZE; i++) {
+            hidden_layer[j] += weights_input_hidden[i][j] * inputs[i];
+        }
+        hidden_layer[j] = activation(hidden_layer[j] + bias_hidden[j]);
+    }
+
+    for (int k = 0; k < OUTPUT_SIZE; k++) {
+        output += hidden_layer[k] * weights_hidden_output[k][0];
+    }
+    output += bias_output;
+
+    // Backpropagation
+    double error = target - output;
+
+    // Update weights and biases for the hidden to output layer
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        for (int k = 0; k < OUTPUT_SIZE; k++) {
+            weights_hidden_output[j][k] += LEARNING_RATE * error * hidden_layer[j];
+        }
+    }
+    bias_output += LEARNING_RATE * error;
+
+    // Update weights and biases for the input to hidden layer
+    for (int j = 0; j < HIDDEN_SIZE; j++) {
+        for (int i = 0; i < INPUT_SIZE; i++) {
+            weights_input_hidden[i][j] += LEARNING_RATE * error * weights_hidden_output[j][0] * inputs[i];
+        }
+        bias_hidden[j] += LEARNING_RATE * error * weights_hidden_output[j][0];
+    }
+    // After updating the weights and biases in the train function, print them
+/*printf("Updated weights_hidden_output: %lf\n", weights_hidden_output[0][0]);
+printf("Updated bias_output: %lf\n", bias_output);
+
+printf("Updated weights_input_hidden: %lf\n", weights_input_hidden[0][0]);
+printf("Updated bias_hidden: %lf\n", bias_hidden[0]);*/
+
+}
+
+void run_training() {
+    // Train a neural network
+    for (int epoch = 0; epoch < EPOCHS; epoch++) {
+        for (int i = 0; i < sizeof(training_data) / sizeof(training_data[0]); i++) {
+            train(training_data[i], targets[i]);
+        }
+    }
+}
+
+void run_testing() {
+    // Test neural network
+    /*Here you should use your test data added before*/
+    for (int i = 0; i < sizeof(test_data) / sizeof(test_data[0]); i++) {
+        double prediction = predict(test_data[i]);
+        printf("Input: [%lf], Target: %lf, Prediction: %lf\n", 
+               test_data[i][0], test_targets[i], prediction);
+    }
+}
+
+void cluster_initialize(void *arg)
+{
+    uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+    
+    if (core_id == 0){
+    	//clock_t start = clock();
+    	initialize();
+    	//clock_t end = clock();
+	//float seconds = (float)(end - start)/ CLOCKS_PER_SEC ;
+    	printf("initializing on [%d %d]!\n", cluster_id, core_id);
+    	//printf("Time: %f", seconds);
+    }
+}
+
+void cluster_training(void *arg)
+{
+    uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+    
+    if (core_id == 1){
+    	//clock_t start = clock();
+    	run_training();
+    	//clock_t end = clock();
+    	//float seconds = (float)(end - start)/ CLOCKS_PER_SEC ;
+    	printf("training on [%d %d]!\n", cluster_id, core_id);
+    	//printf("Time: %f", seconds);
+    }
+}
+
+
+void cluster_testing(void *arg)
+{
+    uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+    
+    if (core_id == 2){
+    	//clock_t start = clock();
+    	printf("testing on [%d %d]!\n", cluster_id, core_id);
+    	run_testing();
+    	//clock_t end = clock();
+    	//float seconds = (float)(end - start)/ CLOCKS_PER_SEC ;
+    	//printf("Time: %f", seconds);
+    }
+}
+
+
+/* Cluster main entry, executed by core 0. */
+void cluster_delegate(void *arg)
+{
+    printf("Cluster master core entry\n");
+    /* Task dispatch to cluster cores. */
+    //initialize();
+    pi_cl_team_fork(pi_cl_cluster_nb_cores(), cluster_initialize, arg);
+    pi_cl_team_fork(pi_cl_cluster_nb_cores(), cluster_training, arg);
+    pi_cl_team_fork(pi_cl_cluster_nb_cores(), cluster_testing, arg);
+    
+    printf("Cluster master core exit\n");
+}
+
+void helloworld(void)
+{
+    printf("Entering main controller\n");
+
+    uint32_t errors = 0;
+    uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+    printf("[%d %d] Hello World!\n", cluster_id, core_id);
+
+    struct pi_device cluster_dev;
+    struct pi_cluster_conf cl_conf;
+
+    /* Init cluster configuration structure. */
+    pi_cluster_conf_init(&cl_conf);
+    cl_conf.id = 0;                /* Set cluster ID. */
+    /* Configure & open cluster. */
+    pi_open_from_conf(&cluster_dev, &cl_conf);
+
+    pi_perf_conf(1 << PI_PERF_CYCLES | 1 << PI_PERF_ACTIVE_CYCLES | 1 << PI_PERF_LD | 1 << PI_PERF_ST);
+    pi_perf_reset();
+    pi_perf_start();
+
+    if (pi_cluster_open(&cluster_dev))
+    {
+        printf("Cluster open failed !\n");
+        pmsis_exit(-1);
+    }
+
+    pi_perf_stop();
+    uint32_t cycles = pi_perf_read(PI_PERF_ACTIVE_CYCLES);
+    uint32_t tim_cycles = pi_perf_read(PI_PERF_CYCLES);
+    uint32_t load_times = pi_perf_read(PI_PERF_LD);
+    uint32_t storage_times = pi_perf_read(PI_PERF_ST);
+    printf("%d cycles for processor\n%d cycles for code execution\n", cycles, tim_cycles);
+    printf("%d for loading operation\n%d for store operation\n", load_times, storage_times);
+
+    /* Prepare cluster task and send it to cluster. */
+    struct pi_cluster_task cl_task;
+
+    pi_cluster_send_task_to_cl(&cluster_dev, pi_cluster_task(&cl_task, cluster_delegate, NULL));
+
+    pi_cluster_close(&cluster_dev);
+
+    printf("Test success !\n");
+
+    pmsis_exit(errors);
+}
+
+/* Program Entry. */
+int main(void)
+{
+    printf("\n\n\t * PMSIS HelloWorld ***\n\n");
+    return pmsis_kickoff((void *) helloworld);
+}
